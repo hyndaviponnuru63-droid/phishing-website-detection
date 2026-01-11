@@ -44,13 +44,7 @@ PLATFORM_DOMAINS = [
 # Risk level function
 # --------------------------------------------------
 def get_risk_level(prob):
-    if prob < 0.3:
-        return "LOW RISK"
-    elif prob < 0.6:
-        return "MEDIUM RISK"
-    else:
-        return "HIGH RISK"
-
+    return "HIGH RISK" if prob >= 0.5 else "LOW RISK"
 # --------------------------------------------------
 # Feature extraction
 # --------------------------------------------------
@@ -165,11 +159,8 @@ if st.button("Predict"):
 
         if risk == "HIGH RISK":
             st.error(" High Risk: This website is potentially phishing")
-        elif risk == "MEDIUM RISK":
-            st.warning(" Medium Risk: This website requires caution")
         else:
             st.success(" Low Risk: This website appears safe")
-
         # --------------------------------------------------
         # Explainability
         # --------------------------------------------------
@@ -192,3 +183,4 @@ if st.button("Predict"):
                 st.write("•", r)
         else:
             st.write("• No strong suspicious patterns detected")
+
