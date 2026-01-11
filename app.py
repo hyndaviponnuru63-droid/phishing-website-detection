@@ -14,6 +14,14 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 model = load_model(os.path.join(BASE_DIR, "phishing_model.h5"))
 scaler = joblib.load(os.path.join(BASE_DIR, "scaler.pkl"))
 
+TRUSTED_DOMAINS = [
+    "google.com",
+    "amazon.com",
+    "wikipedia.org",
+    "microsoft.com",
+    "apple.com"
+   ]
+
 # --------------------------------------------------
 # Feature extraction function
 # --------------------------------------------------
@@ -85,10 +93,29 @@ if st.button("Predict"):
     if not url_input.strip():
         st.warning("Please enter a valid URL.")
     else:
-        # Extract features
+        # -------------------------------
+        # TRUSTED DOMAIN WHITELIST CHECK
+        # -------------------------------
+        parsed = urlparse(url_input)
+        domain = parsed.netloc.lower()
+
+        if any(td in domain for td in TRUSTED_DOMAINS):
+            st.subheader("Prediction Result")
+            st.success(" Trusted domain detected (LEGITIMATE)")
+
+            st.subheader(" Explanation")
+            st.write(" The domain belongs to a globally trusted website")
+            st.write(" Whitelist-based safety check applied")
+
+            st.stop()  # 
+
+        # -------------------------------
+        # ML FEATURE EXTRACTION & PREDICTION
+        # -------------------------------
         features = extract_features(url_input)
         features_array = np.array([features])
         features_scaled = scaler.transform(features_array)
+
 
         # Model prediction
         probability = model.predict(features_scaled)[0][0]
@@ -129,4 +156,5 @@ if st.button("Predict"):
                 st.write("•", reason)
         else:
             st.write("• No strong suspicious patterns detected")
+
 
