@@ -18,9 +18,13 @@ TRUSTED_DOMAINS = [
     "google.com",
     "amazon.com",
     "wikipedia.org",
+    "github.com",
+    "streamlit.io",
     "microsoft.com",
-    "apple.com"
-   ]
+    "apple.com",
+    "linkedin.com"
+]
+
 
 # --------------------------------------------------
 # Feature extraction function
@@ -100,18 +104,17 @@ if st.button("Predict"):
         domain = parsed.netloc.lower()
 
         if any(td in domain for td in TRUSTED_DOMAINS):
-            st.subheader("Prediction Result")
+            st.info(" Decision Path: Trusted-domain whitelist")
+            st.subheader(" Prediction Result")
             st.success(" Trusted domain detected (LEGITIMATE)")
-
             st.subheader(" Explanation")
-            st.write(" The domain belongs to a globally trusted website")
-            st.write(" Whitelist-based safety check applied")
-
-            st.stop()  # 
-
+            st.write("• The domain belongs to a globally trusted website")
+            st.write("• Whitelist-based safety check applied")
+            st.stop()
         # -------------------------------
         # ML FEATURE EXTRACTION & PREDICTION
         # -------------------------------
+        st.info(" Decision Path: Machine Learning–based analysis (domain not whitelisted)")
         features = extract_features(url_input)
         features_array = np.array([features])
         features_scaled = scaler.transform(features_array)
@@ -156,5 +159,6 @@ if st.button("Predict"):
                 st.write("•", reason)
         else:
             st.write("• No strong suspicious patterns detected")
+
 
 
