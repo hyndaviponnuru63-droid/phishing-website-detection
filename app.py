@@ -2,18 +2,20 @@ import streamlit as st
 import numpy as np
 import joblib
 import os
-import requests
 from urllib.parse import urlparse
 from tensorflow.keras.models import load_model
 
 # --------------------------------------------------
-# Load model and scaler (robust path handling)
+# Load model and scaler
 # --------------------------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 model = load_model(os.path.join(BASE_DIR, "phishing_model.h5"))
 scaler = joblib.load(os.path.join(BASE_DIR, "scaler.pkl"))
 
+# --------------------------------------------------
+# Trusted domains (whitelist)
+# --------------------------------------------------
 TRUSTED_DOMAINS = [
     "google.com",
     "amazon.com",
@@ -25,33 +27,32 @@ TRUSTED_DOMAINS = [
     "linkedin.com"
 ]
 
+# --------------------------------------------------
+# Risk level function (STEP 1)
+# --------------------------------------------------
+def get_risk_level(prob):
+    if prob < 0.3:
+        return "LOW RISK"
+    elif prob < 0.6:
+        return "MEDIUM RISK"
+    else:
+        return "HIGH RISK"
 
 # --------------------------------------------------
 # Feature extraction function
 # --------------------------------------------------
 def extract_features(url):
-    # URL length
     url_length = len(url)
-
-    # Valid URL (check reachability)
     valid_url = 1 if url.startswith("http") else 0
-    # @ symbol
     at_symbol = 1 if "@" in url else 0
 
-    # Sensitive words
     sensitive_words = ["login", "verify", "bank", "secure", "account", "update"]
-    sensitive_words_count = sum(
-    url.lower().count(word) for word in sensitive_words)
-    # Parse URL
+    sensitive_words_count = sum(url.lower().count(w) for w in sensitive_words)
+
     parsed = urlparse(url)
-
-    # Path length
     path_length = len(parsed.path)
-
-    # HTTPS usage
     isHttps = 1 if parsed.scheme == "https" else 0
 
-    # Character counts
     nb_dots = url.count(".")
     nb_hyphens = url.count("-")
     nb_and = url.lower().count("and")
@@ -81,13 +82,13 @@ def extract_features(url):
 # --------------------------------------------------
 st.set_page_config(page_title="Phishing Website Detection", layout="centered")
 
-st.title(" Phishing Website Detection")
+st.title("🔐 Phishing Website Detection")
 st.write(
-    "Paste a website URL below. The system will **automatically extract features**, "
-    "predict phishing probability, and **explain the decision**."
+    "Paste a website URL below. The system estimates **phishing risk** "
+    "using machine learning and explainable rules."
 )
 
-st.subheader("Enter Website URL")
+st.subheader("🌐 Enter Website URL")
 url_input = st.text_input("Example: https://secure-login-paypal-update.com/verify")
 
 # --------------------------------------------------
@@ -97,47 +98,55 @@ if st.button("Predict"):
     if not url_input.strip():
         st.warning("Please enter a valid URL.")
     else:
-        # -------------------------------
-        # TRUSTED DOMAIN WHITELIST CHECK
-        # -------------------------------
         parsed = urlparse(url_input)
         domain = parsed.netloc.lower()
 
+        # -------------------------------
+        # TRUSTED DOMAIN WHITELIST
+        # -------------------------------
         if any(td in domain for td in TRUSTED_DOMAINS):
-            st.info(" Decision Path: Trusted-domain whitelist")
-            st.subheader(" Prediction Result")
-            st.success(" Trusted domain detected (LEGITIMATE)")
-            st.subheader(" Explanation")
-            st.write("• The domain belongs to a globally trusted website")
+            st.info("🛡️ Decision Path: Trusted-domain whitelist")
+
+            st.subheader("📊 Prediction Result")
+            st.success("✅ Low Risk: Trusted domain detected")
+
+            st.subheader("🧠 Explanation")
+            st.write("• Domain belongs to a globally trusted platform")
             st.write("• Whitelist-based safety check applied")
+
             st.stop()
+
         # -------------------------------
-        # ML FEATURE EXTRACTION & PREDICTION
+        # ML-BASED ANALYSIS
         # -------------------------------
-        st.info(" Decision Path: Machine Learning–based analysis (domain not whitelisted)")
+        st.info("🔍 Decision Path: Machine Learning–based risk estimation")
+
         features = extract_features(url_input)
         features_array = np.array([features])
         features_scaled = scaler.transform(features_array)
 
-
-        # Model prediction
         probability = model.predict(features_scaled)[0][0]
-        result = int(probability >= 0.5)
 
-        # --------------------------------------------------
-        # Display result
-        # --------------------------------------------------
+        # STEP 2: Risk level
+        risk = get_risk_level(probability)
+
+        # -------------------------------
+        # Display result (STEP 3)
+        # -------------------------------
         st.subheader("📊 Prediction Result")
         st.write(f"**Phishing Probability:** {probability:.4f}")
+        st.write(f"**Risk Level:** {risk}")
 
-        if result == 1:
-            st.error("This website is likely **PHISHING**")
+        if risk == "HIGH RISK":
+            st.error("🚨 High Risk: This website is potentially phishing")
+        elif risk == "MEDIUM RISK":
+            st.warning("⚠️ Medium Risk: This website requires caution")
         else:
-            st.success("This website is **LEGITIMATE**")
+            st.success("✅ Low Risk: This website appears safe")
 
-        # --------------------------------------------------
-        # Simple Explainability
-        # --------------------------------------------------
+        # -------------------------------
+        # Explainability
+        # -------------------------------
         st.subheader("🧠 Explanation (Why this result?)")
         reasons = []
 
@@ -146,19 +155,14 @@ if st.button("Predict"):
         if features[5] == 0:
             reasons.append("Website does not use HTTPS")
         if features[3] > 0:
-            reasons.append("Contains sensitive words like login/bank/verify")
-        if features[1] == 0:
-            reasons.append("URL is not reachable")
+            reasons.append("Contains sensitive words")
         if features[6] > 4:
             reasons.append("Too many dots in the URL")
         if features[7] > 2:
             reasons.append("Multiple hyphens in the URL")
 
         if reasons:
-            for reason in reasons:
-                st.write("•", reason)
+            for r in reasons:
+                st.write("•", r)
         else:
             st.write("• No strong suspicious patterns detected")
-
-
-
