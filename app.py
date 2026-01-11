@@ -22,19 +22,14 @@ def extract_features(url):
     url_length = len(url)
 
     # Valid URL (check reachability)
-    try:
-        response = requests.get(url, timeout=3)
-        valid_url = 1 if response.status_code == 200 else 0
-    except:
-        valid_url = 0
-
+    valid_url = 1 if url.startswith("http") else 0
     # @ symbol
     at_symbol = 1 if "@" in url else 0
 
     # Sensitive words
     sensitive_words = ["login", "verify", "bank", "secure", "account", "update"]
-    sensitive_words_count = sum(word in url.lower() for word in sensitive_words)
-
+    sensitive_words_count = sum(
+    url.lower().count(word) for word in sensitive_words)
     # Parse URL
     parsed = urlparse(url)
 
@@ -134,3 +129,4 @@ if st.button("Predict"):
                 st.write("•", reason)
         else:
             st.write("• No strong suspicious patterns detected")
+
