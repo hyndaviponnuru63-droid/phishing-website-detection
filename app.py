@@ -14,10 +14,11 @@ model = load_model(os.path.join(BASE_DIR, "phishing_model.h5"))
 scaler = joblib.load(os.path.join(BASE_DIR, "scaler.pkl"))
 
 # --------------------------------------------------
-# Trusted domains (whitelist)
+# Trusted domains (high-confidence whitelist)
 # --------------------------------------------------
 TRUSTED_DOMAINS = [
     "google.com",
+    "youtube.com",
     "amazon.com",
     "wikipedia.org",
     "github.com",
@@ -28,7 +29,19 @@ TRUSTED_DOMAINS = [
 ]
 
 # --------------------------------------------------
-# Risk level function (STEP 1)
+# Known platform domains (Solution 3)
+# --------------------------------------------------
+PLATFORM_DOMAINS = [
+    "youtube.com",
+    "github.com",
+    "twitter.com",
+    "facebook.com",
+    "instagram.com",
+    "netflix.com"
+]
+
+# --------------------------------------------------
+# Risk level function
 # --------------------------------------------------
 def get_risk_level(prob):
     if prob < 0.3:
@@ -39,7 +52,7 @@ def get_risk_level(prob):
         return "HIGH RISK"
 
 # --------------------------------------------------
-# Feature extraction function
+# Feature extraction
 # --------------------------------------------------
 def extract_features(url):
     url_length = len(url)
@@ -82,13 +95,13 @@ def extract_features(url):
 # --------------------------------------------------
 st.set_page_config(page_title="Phishing Website Detection", layout="centered")
 
-st.title("🔐 Phishing Website Detection")
+st.title("Phishing Website Detection")
 st.write(
-    "Paste a website URL below. The system estimates **phishing risk** "
-    "using machine learning and explainable rules."
+    "This system estimates **phishing risk** using a layered approach: "
+    "trusted domains, platform heuristics, and machine learning."
 )
 
-st.subheader("🌐 Enter Website URL")
+st.subheader(" Enter Website URL")
 url_input = st.text_input("Example: https://secure-login-paypal-update.com/verify")
 
 # --------------------------------------------------
@@ -101,9 +114,9 @@ if st.button("Predict"):
         parsed = urlparse(url_input)
         domain = parsed.netloc.lower()
 
-        # -------------------------------
-        # TRUSTED DOMAIN WHITELIST
-        # -------------------------------
+        # --------------------------------------------------
+        # Layer 1: Trusted-domain whitelist
+        # --------------------------------------------------
         if any(td in domain for td in TRUSTED_DOMAINS):
             st.info("🛡️ Decision Path: Trusted-domain whitelist")
 
@@ -111,43 +124,56 @@ if st.button("Predict"):
             st.success("✅ Low Risk: Trusted domain detected")
 
             st.subheader("🧠 Explanation")
-            st.write("• Domain belongs to a globally trusted platform")
-            st.write("• Whitelist-based safety check applied")
+            st.write("• Domain belongs to a globally trusted website")
+            st.write("• Whitelist-based fast-pass applied")
 
             st.stop()
 
-        # -------------------------------
-        # ML-BASED ANALYSIS
-        # -------------------------------
-        st.info("🔍 Decision Path: Machine Learning–based risk estimation")
+        # --------------------------------------------------
+        # Layer 2: Platform-domain detection (Solution 3)
+        # --------------------------------------------------
+        if any(p in domain for p in PLATFORM_DOMAINS):
+            st.info("🛡️ Decision Path: Known platform domain")
+
+            st.subheader("📊 Prediction Result")
+            st.success("✅ Low Risk: Known platform website")
+
+            st.subheader("🧠 Explanation")
+            st.write("• Domain belongs to a widely used online platform")
+            st.write("• Platform-domain heuristic applied")
+
+            st.stop()
+
+        # --------------------------------------------------
+        # Layer 3: ML-based risk estimation
+        # --------------------------------------------------
+        st.info(" Decision Path: Machine Learning–based risk estimation")
 
         features = extract_features(url_input)
         features_array = np.array([features])
         features_scaled = scaler.transform(features_array)
 
         probability = model.predict(features_scaled)[0][0]
-
-        # STEP 2: Risk level
         risk = get_risk_level(probability)
 
-        # -------------------------------
-        # Display result (STEP 3)
-        # -------------------------------
+        # --------------------------------------------------
+        # Display result
+        # --------------------------------------------------
         st.subheader("📊 Prediction Result")
         st.write(f"**Phishing Probability:** {probability:.4f}")
         st.write(f"**Risk Level:** {risk}")
 
         if risk == "HIGH RISK":
-            st.error("🚨 High Risk: This website is potentially phishing")
+            st.error(" High Risk: This website is potentially phishing")
         elif risk == "MEDIUM RISK":
-            st.warning("⚠️ Medium Risk: This website requires caution")
+            st.warning(" Medium Risk: This website requires caution")
         else:
-            st.success("✅ Low Risk: This website appears safe")
+            st.success(" Low Risk: This website appears safe")
 
-        # -------------------------------
+        # --------------------------------------------------
         # Explainability
-        # -------------------------------
-        st.subheader("🧠 Explanation (Why this result?)")
+        # --------------------------------------------------
+        st.subheader(" Explanation (Why this result?)")
         reasons = []
 
         if features[2] == 1:
